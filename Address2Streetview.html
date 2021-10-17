@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Address2Streetview</title>
+     
+      <meta charset = "utf-8">
+      <meta http-equiv = "X-UA-Compatible" content = "IE=edge,chrome=1">
+      <meta name = "viewport" content = "width=device-width,height=device-height,initial-scale=1">
+      <script type="text/javascript" src="js/jquery-3.2.0.min.js"></script>              
+      <script type="text/javascript" src="js/materialize.min.js"></script>
+      <script src="https://www.gstatic.com/firebasejs/4.0.0/firebase.js"></script>
+      <script type="text/javascript" src="js/authentication.js"></script>
+
+      <link rel="stylesheet" href="css/font-awesome.min.css">   
+      <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
+      <link rel="stylesheet" href="css/Address2Streetview.css">
+      <script>
+          var i;
+          var position;
+          var streetmap, panomap, position_addr = {lat:24.1220135 , lng: 120.679516};
+          var fire_vio='null';
+          var res_hel='null';
+          var h_age='null';
+          function initialize()
+          {
+            panomap = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
+              position: position_addr,
+              pov: {
+                heading: 16,
+                pitch: 0
+              }
+            });
+          }
+          function trans() {
+            i = 0;
+            var position = $("#source").val();
+            addressToLatLng(position);
+          }
+
+          function addressToLatLng(addr) 
+          {
+            var geocoder = new google.maps.Geocoder();
+            geocoder.geocode({
+                "address": addr
+            }, function (results, status) {
+              if (status == google.maps.GeocoderStatus.OK)  //If find address on google map
+              {
+                position_addr = results[0].geometry.location;
+                panomap = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
+                  position: position_addr,
+                  pov: { 
+                    heading: 160,
+                    pitch: -10
+                  }
+                });
+              } 
+              else 
+              {
+                alert("查無經緯度" + "\n");
+              }
+            });
+          }
+
+          function latlngtostreetview(){
+            var position_nonetransfer=document.getElementById('source1').value;
+            if(position_nonetransfer!=""){
+              var position_transfer=position_nonetransfer.split(',');
+             panomap = new google.maps.StreetViewPanorama(document.getElementById('pano'), {
+                  position: {lat: parseFloat(position_transfer[0]), lng: parseFloat(position_transfer[1])},
+                  pov: { 
+                    heading: 160,
+                    pitch: -10
+                  }
+                });
+            }
+          }
+
+          //將經緯度傳到manager_basic.html
+          function SendPanoPosition()
+          {
+            var tmpPosition = panomap.getPosition();
+            //var tmpPanoID = panomap.getPano();
+            var space_num = null;
+            var spaceName ='';
+            user_app.database().ref('space_num').once('value').then(function(snapshot){
+              space_num=parseInt(snapshot.val());
+              spaceName ="Space"+space_num;
+              console.log(space_num + ",efef," + spaceName);
+            });
+            if(document.getElementById("source").value==""){
+              var address=null;
+            }
+            else{
+              var address=document.getElementById("source").value;    
+            }
+            
+            //上傳照片和相關資訊
+
+            var storage = user_app.storage();
+            // Create a storage reference from our storage service
+            var clear=false;
+            var old_ref='';
+            var place_name=document.getElementById('first_name').value;
+            var place_description=document.getElementById('textarea1').value;
+            
+            user_app.database().ref(spaceName+'/photo_name').once('value',function(snapshot){
+              old_ref=snapshot.val();
+              console.log(old_ref);
+            }).then(function(){
+              if(old_ref==null){
+                console.log("maybe don't have a photo yet");
+                clear=true;
+              }
+              else{
+                storage.ref().child(spaceName+'/'+old_ref).delete().then(function() {
+                  console.log("delete successful");  
+                  clear=true; 
+                }).catch(function(error) {
+                  console.log(spaceName+'/'+old_ref);
+                  console.log("not successful");
+                  clearInterval(waiting);
+                });
+              }
+            });/**.then(function(error){
+                  if(!error){
+                      console.log("maybe don't have a photo yet");
+                      clear=true;
+                  }
+                  else{
+                       clear=1;
+                       console.log(clear);
+                  }
+              });**/
+                  //console.log(old_ref); 
+            var waiting=setInterval(function(){
+              if(clear==true){
+                clearInterval(waiting);
+                user_app.database().ref(spaceName+'/place_name').set(place_name);
+                user_app.database().ref(spaceName+'/place_description').set(place_description);
+                user_app.database().ref(spaceName+'/place_address').set(document.getElementById('source').value);
+                user_app.database().ref(spaceName+'/open_data/rh').set(res_hel);
+                user_app.database().ref(spaceName+'/open_data/fv').set(fire_vio);
+                user_app.database().ref(spaceName+'/open_data/ha').set(h_age);
+                for(var i=1;i<=14;i++){
+                  if(document.getElementById('type'+i).checked){
+                    user_app.database().ref(spaceName+'/type_tag/type'+i+'/status').set('true');
+                    user_app.database().ref(spaceName+'/type_tag/type'+i+'/tag_name').set(document.getElementById('type'+i).value);
+                  }else{
+                    user_app.database().ref(spaceName+'/type_tag/type'+i+'/status').set('false');
+                    user_app.database().ref(spaceName+'/type_tag/type'+i+'/tag_name').set(document.getElementById('type'+i).value);
+
+                  }
+                }
+                user_app.database().ref(spaceName+'/people_amount').set(document.getElementById('people_range').value);
+                var file = document.getElementById('your_photo');
+                file=file.files[0];
+                user_app.database().ref(spaceName+'/photo_name').set(file.name);
+                var storageRef = storage.ref(spaceName+'/'+file.name);
+                var uploadTask = storageRef.put(file);
+                uploadTask.on('state_changed', function(snapshot){
+                  // 觀察狀態變化，例如：progress, pause, and resume
+
+                  // 取得檔案上傳狀態，並用數字顯示
+
+                  var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                  console.log('Upload is ' + progress + '% done');
+                  switch (snapshot.state) {
+                    case user_app.storage.TaskState.PAUSED: // or 'paused'
+                      console.log('Upload is paused');
+                      break;
+                    case user_app.storage.TaskState.RUNNING: // or 'running'
+                      console.log('Upload is running');
+                      break;
+                  }
+                }, function(error) {
+                  // Handle unsuccessful uploads
+                }, function() {
+                  // Handle successful uploads on complete
+                  user_app.database().ref(spaceName+'/photo_url').set(uploadTask.snapshot.downloadURL);
+                  // For instance, get the download URL: https://authappstorage.googleapis.com/...
+                  document.location.href = "manager_basic.html?LAT="+tmpPosition.lat()+"&LNG="+tmpPosition.lng()+"&Addr="+address+"&SpaceN="+spaceName;
+                });     
+              }
+            },500);
+          }
+
+          var data_num;//台中餐廳opendata資料數
+          var house_age_num;
+          var fire_violation_num;
+          var data=[];//餐廳資料陣列
+          var violation_data=[];
+          var house_age_data=[];//消防安檢未過
+          
+          //字串比對function
+          function changevisible(){
+            document.getElementById('open_part').style.display= 'none';
+            document.getElementById('info_part').style.display= 'block';
+            window.scrollTo(0, 0);  //scroll up
+            setTimeout(initialize(),5000);
+          }
+          function strcmp ( str1, str2 ) {
+              // http://kevin.vanzonneveld.net
+              // +   original by: Waldo Malqui Silva
+              // +      input by: Steve Hilder
+              // +   improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+              // +    revised by: gorthaur
+              // *     example 1: strcmp( 'waldo', 'owald' );
+              // *     returns 1: 1
+              // *     example 2: strcmp( 'owald', 'waldo' );
+              // *     returns 2: -1
+
+              return ( ( str1 == str2 ) ? 0 : ( ( str1 > str2 ) ? 1 : -1 ) );
+          }
+
+          function determined_type(){
+            document.getElementById('choose_type').innerHTML='';
+            for(var i=1;i<=14;i++){
+              if (document.getElementById('type'+i).checked) {
+                document.getElementById('choose_type').innerHTML+='<div class="chip">'+document.getElementById('type'+i).value+'</div>';
+              }
+            }
+          }
+
+          function state_change(change){
+            if(change==1){
+              if(document.getElementById('account_state').checked){
+                document.getElementById('change_state').innerHTML=' <li><a class="waves-effect" href="manager_manageIndex.html"><i class="material-icons">stars</i>管理場地</a></li><li><a class="waves-effect" href="manager_basic.html"><i class="material-icons">room</i>新增預約場地</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">person_pin</i>說明</a>';
+
+                document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="manager_manageIndex.html">管理場地</a></li><li><a class="waves-effect" href="manager_basic.html">新增預約場地</a></li><li><a class="waves-effect" href="#!"說明</a></li>';
+
+                document.getElementById('account_state1').checked=true;
+                document.getElementById('account_state').checked=true;
+              }else{
+                document.getElementById('change_state').innerHTML='<li><a class="waves-effect" href="user_search.html"><i class="material-icons">search</i>探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html"><i class="material-icons">room</i>我的預約</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">stars</i>願望清單</a></li>';
+
+                document.getElementById('account_state1').checked=false;
+                document.getElementById('account_state').checked=false;
+
+                document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="user_search.html">探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html">我的預約</a></li><li><a class="waves-effect" href="#!">願望清單</a></li>';
+              }
+            }else{
+              if(document.getElementById('account_state1').checked){
+                document.getElementById('change_state').innerHTML=' <li><a class="waves-effect" href="manager_manageIndex.html"><i class="material-icons">stars</i>管理場地</a></li><li><a class="waves-effect" href="manager_basic.html"><i class="material-icons">room</i>新增預約場地</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">person_pin</i>說明</a>';
+
+                document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="manager_manageIndex.html">管理場地</a></li><li><a class="waves-effect" href="manager_basic.html">新增預約場地</a></li><li><a class="waves-effect" href="#!">說明</a></li>';
+
+                document.getElementById('account_state1').checked=true;
+                document.getElementById('account_state').checked=true;
+              }else{
+                  document.getElementById('change_state').innerHTML='<li><a class="waves-effect" href="user_search.html"><i class="material-icons">search</i>探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html"><i class="material-icons">room</i>我的預約</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">stars</i>願望清單</a></li>';
+
+                  document.getElementById('account_state1').checked=false;
+                  document.getElementById('account_state').checked=false;
+                  document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="user_search.html">探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html">我的預約</a></li><li><a class="waves-effect" href="#!">願望清單</a></li>';
+              }
+            }
+          }
+
+      </script>
+  </head>
+  
+  <body>
+  <div class = "navbar-fixed">
+        <nav class="navbar at_top" role="navigation">
+            <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"><img class="logo" src="images/專題logo font-04.png" alt="booKing"></a>
+            <a href="#" data-activates="nav-mobile" class="button-collapse"><i class="material-icons">menu</i></a>
+              <ul class="right hide-on-med-and-down"> 
+                      <li>
+                        <div class="switch">
+                            <label style="font-weight: bold;">
+                            預約顧客
+                            <input type="checkbox" onchange="state_change(2)" id="account_state1" checked="checked">
+                            <span class="lever"></span>
+                            場地主
+                            </label>
+                        </div>
+                      </li>
+                      <t id="change_state1">
+                        <li><a class="waves-effect" href="manager_manageIndex.html">管理場地</a></li>
+                        <li><a class="waves-effect" href="manager_basic.html">新增預約空間</a></li>
+                        <li><a class="waves-effect" href="#">說明</a></li>
+                      </t>
+                  
+                      <li class="lijustify">
+                        <div class="login_part">
+                          <a class="waves-effect waves-light btn" href="#SignInmodal">登入</a>
+                        </div>
+                        <div class="logout_part" style="display: none">
+                          <a class="waves-effect waves-light btn" onclick="toggleSignIn()">登出</a>
+                        </div>
+                      </li>
+                  </ul>
+            </div>
+          </nav>
+      </div>
+    <!--Slidenav start--><!--Must put this out of nav block so it can be fixed-->
+    <ul id="nav-mobile" class="side-nav">
+        <li><a onclick="$('.button-collapse').sideNav('hide');"><i class="material-icons">clear_all</i></a></li>
+        <li><div class="divider"></div></li>
+        <li>
+          <div class="userView" id="userView" style="display: none">
+              <div class="background"> <img src="images/bookingBG.jpg"> </div>
+              <img class="circle" id="profile_pic" src="http://i.imgur.com/BOGqUjA.gif">
+              <span class="white-text name" id="user_Name"> </span> 
+              <span class="white-text email" id="user_Email"> </span>
+          </div>
+          <div class="login_part">
+            <a class="waves-effect waves-light btn" href="#SignInmodal">登入</a>
+          </div>  
+        </li> 
+        <li><div class="switch center-align">
+          <label style="font-weight: bold;">
+            預約顧客
+            <input type="checkbox" onchange="state_change(1)" id="account_state" checked="checked">
+            <span class="lever"></span>
+            場地主
+          </label>
+        </div></li>
+        <div id="change_state">
+          <li><a class="waves-effect" href="manager_manageIndex.html"><i class="material-icons">stars</i>管理場地</a></li>
+          <li><a class="waves-effect" href="manager_basic.html"><i class="material-icons">room</i>新增預約場地</a></li>
+          <li><a class="waves-effect" href="#!"><i class="material-icons">person_pin</i>說明</a></li>
+      </div>
+        <li>
+          <div class="logout_part" style="display: none">
+              <a class="waves-effect waves-light btn" onclick="toggleSignIn()">登出</a>
+          </div>
+        </li>
+    </ul>
+  <!--SlideNave end-->
+
+  <div id="SignUpmodal" class="modal">
+      <div class="modal-content">
+          <div class="row margin logoarea">
+            <img class="signuplogo" src="images/專題app icon-02.png" alt="booKing"></a>
+          </div>
+          <div class="row margin">
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">android</i> -->
+                <input id="signup-username" type="text" >
+                <label for="signup-username">用戶名</label>
+              </div>
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">perm_media</i> -->
+                <input id="signup-photo" type="text" >
+                <label for="signup-photo">頭貼 URL</label>
+              </div>
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">vpn_key</i> -->
+                <textarea id="fire_base_textarea" class="materialize-textarea" value=""></textarea>
+                <label for="signup-photo">Firebase 金鑰參數(必要)</label>
+              </div>
+          </div>
+          <div class="signupnotation">
+              <button class="waves-effect waves-light btn signupbtn" id="quickstart-sign-up" name="signup">Sign Up</button>
+              <p>剛才輸入的Email與密碼已暫存了，</p>
+              <p>剩下面的欄位囉!</p>
+          </div>
+      </div>
+      <!-- <div class="modal-footer signupnotation">
+          <button class="waves-effect waves-light btn signupbtn" id="quickstart-sign-up" name="signup">Sign Up</button>
+          <p>剛才輸入的Email與密碼已暫存了，</p>
+          <p>剩下面的欄位囉!</p>
+      </div> -->
+  </div>
+
+  <div id="SignInmodal" class="modal">
+      <div class="modal-content">
+          <div class="row margin logoarea">
+            <img class="loginlogo" src="images/專題logo font-04.png" alt="booKing"></a>
+          </div>
+          <br>
+          <div class="row margin logininput">
+            <!-- <i class="material-icons prefix">email</i> -->
+            <input class="" type="email" id="email" name="email" placeholder="Email"/>
+          </div>
+          <div class="row margin logininput">
+            <!-- <i class="material-icons prefix">vpn_key</i> -->
+              <input  type="password" id="password" name="password" placeholder="Password"/>
+          </div>
+          <!--<button class="waves-effect waves-light btn" id="quickstart-password-reset">Forget password</button>-->
+
+          <div class="loginnotation">
+              <button class="waves-effect waves-light btn loginbtn" id="quickstart-sign-in" name="signin">Sign In</button>
+              <p>還沒有帳號?直接打在上面送出吧!</p>
+          </div>
+      </div>
+          
+      <!-- <div class="modal-footer loginnotation">
+          <button class="waves-effect waves-light btn loginbtn" id="quickstart-sign-in" name="signin">Sign In</button>
+          <p>還沒有帳號?直接打在上面送出吧!</p>
+      </div> -->
+  </div>
+  <br>
+  
+  <!--SlideNave end-->
+  <br>
+  <div id="type_modal" class="modal contentcolor">
+    <div class="modal-content">
+      <h4 style="color:black;">選擇場地活動性質(可複選)</h4><br>
+      <form action="#"> 
+        <p><input type="checkbox" id="type1" value="會議功能" />
+        <label id="type_label1" for="type1">會議功能</label></p>
+        <p><input type="checkbox" id="type2" value="課程與講座" />
+        <label id="type_label2" for="type2">課程與講座</label></p>
+        <p><input type="checkbox" id="type3" value="派對狂歡"/>
+        <label id="type_label3" for="type3">派對狂歡</label></p>
+        <p><input type="checkbox" id="type4" value="展覽"/>
+        <label id="type_label4" for="type4">展覽</label></p>
+        <p><input type="checkbox" id="type5" value="體育活動"/>
+        <label id="type_label5" for="type5">體育活動</label></p>
+        <p><input type="checkbox" id="type6" value="烹飪功能"/>
+        <label id="type_label6" for="type6">烹飪功能</label></p>
+        <p><input type="checkbox" id="type7" value="發表會"/>
+        <label id="type_label7" for="type7">發表會</label></p>
+        <p><input type="checkbox" id="type8" value="音樂表演"/>
+        <label id="type_label9" for="type8">音樂表演</label></p>
+        <p><input type="checkbox" id="type9" value="室外活動"/>
+        <label id="type_label10" for="type9">室外活動</label></p>
+        <p><input type="checkbox" id="type10" value="劇場活動"/>
+        <label id="type_label11" for="type10">劇場活動</label></p>
+        <p><input type="checkbox" id="type11" value="餐敘聯誼"/>
+        <label id="type_label12" for="type11">餐敘聯誼</label></p>
+        <p><input type="checkbox" id="type12" value="婚宴場地"/>
+        <label id="type_label13" for="type12">婚宴場地</label></p>
+        <p><input type="checkbox" id="type13" value="讀書進修"/>
+        <label id="type_label14" for="type13">讀書進修</label></p>
+        <p><input type="checkbox" id="type14" value="競賽場所"/>
+        <label id="type_label1" for="type14">競賽場所</label></p>           
+      </form>
+    </div>
+    <div class="modal-footer">
+      <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat" onclick="determined_type()">確認</a>
+    </div>
+  </div>
+      
+  <div class="container">
+    <div id="open_part">
+      <div class="contentcolor">
+        <h4>場地合格性自我標示</h4>
+      </div>
+      <form class="col s12"> 
+        <div class="input-field col s4 m4 l4">
+          <select id="city">
+            <option value="-1" disabled selected>選擇你的縣市</option>
+            <option value="臺北市">臺北市</option>
+            <option value="新北市">新北市</option>
+            <option value="桃園市">桃園市</option>
+            <option value="臺中市">臺中市</option>
+            <option value="臺南市">臺南市</option>
+            <option value="高雄市">高雄市</option>
+            <option value="基隆市">基隆市</option>
+            <option value="新竹市">新竹市</option>
+            <option value="嘉義市">嘉義市</option>
+            <option value="新竹縣">新竹縣</option>
+            <option value="苗栗縣">苗栗縣</option>
+            <option value="彰化縣">彰化縣</option>
+            <option value="南投縣">南投縣</option>
+            <option value="雲林縣">雲林縣</option>
+            <option value="嘉義縣">嘉義縣</option>
+            <option value="屏東縣">屏東縣</option>
+            <option value="宜蘭縣">宜蘭縣</option>
+            <option value="花蓮縣">花蓮縣</option>
+            <option value="臺東縣">臺東縣</option>
+            <option value="澎湖縣">澎湖縣</option>
+            <option value="金門縣">金門縣</option>
+            <option value="連江縣">連江縣</option>
+          </select>
+          <label class="citylabel">縣/市</label>
+        </div>
+        <div class="row">
+          <div class="input-field col s12 m4 l4">
+            <input placeholder="區" value="" id="section" type="text" class="validate">         
+          </div>
+          <div class="input-field col s12 m4 l4">
+              <input placeholder="路" value="" id="road" type="text" class="validate">        
+          </div>
+          <div class="input-field col s12 m4 l4">
+              <input placeholder="段" value="" id="duan" type="text" class="validate">
+          </div>
+          <div class="input-field col s12 m4 l4">
+              <input placeholder="街" value="" id="street" type="text" class="validate">
+          </div>
+          <div class="input-field col s12 m4 l4">
+              <input placeholder="號" value="" id="number" type="text" class="validate">
+          </div>
+        </div>
+        <a href="#first_coll" class="waves-effect waves-light btn" data-click="true" onclick="input_addr()">搜尋資料</a>
+        <br><br>
+            
+        <ul class="collapsible" data-collapsible="accordion">
+          <li>
+            <div id="first_coll" class="collapsible-header">屋齡資料</div>
+            <div class="collapsible-body">
+              <div class="collection" id="age_level">
+                <a class="collection-item">無結果</a>
+              </div>
+            </div>
+          </li>
+
+          <li>
+            <div class="collapsible-header">消防安檢違規</div>
+            <div class="collapsible-body">
+              <div class="collection" id="violation_level">
+                <a class="collection-item">無結果</a>
+              </div>
+            </div>
+          </li>
+
+          <li>
+            <div class="collapsible-header">優良衛生評價餐廳</div>
+            <div class="collapsible-body">
+              <div class="collection" id="restaurant_level">
+                <a class="collection-item">無結果</a>
+              </div>
+            </div>
+          </li>
+        </ul>    
+      </form>
+      <br>
+      <a class="waves-effect waves-light btn" onclick="changevisible()">下一步</a>
+      <br><br>
+    </div>
+
+    <div id="info_part" style="display:none" >
+      <!--場域資訊-->
+      <div id="place_info" class="container col s12 m6 l6 contentcolor">
+        <h4>輸入您的場域資訊</h4>
+        <br>
+
+          <div class="input-field col s12 m6 l6">
+            <input id="first_name" type="text" class="validate">
+            <label for="first_name">場域名稱</label>
+          </div>
+
+       
+
+          <div class="input-field col s12 m6 l6">
+            <textarea id="textarea1" class="materialize-textarea validate"></textarea>
+            <label for="textarea1">場域描述</label>
+           </div>
+
+
+        <h4>選擇場地活動性質</h4>
+        <br>
+        <div id="choose_type"></div>
+          <a class="waves-effect waves-light btn" href="#type_modal">選擇活動性質</a>
+        <br><br>
+        <h4>場地人數上限</h4>
+        <div class="input-field col s12">
+          <select id="people_range">
+            <option value="" disabled selected>Choose your option</option>
+            <option value="1-10人">1-10人</option>
+            <option value="11-20人">11-20人</option>
+            <option value="21-40人">21-40人</option>
+            <option value="41-60人">41-60人</option>
+            <option value="60人以上">60人以上</option>
+          </select>           
+        </div>
+        <br><br>
+        <h4>上傳場域照片</h4>
+        <br>
+        <form action="#">
+          <div class="file-field input-field ">
+            <div class="btn" id="send_photo">
+              <span>上傳照片</span>
+              <input type="file" id="your_photo">
+            </div>
+            <div class="file-path-wrapper ">
+              <input class="file-path validate col s12 m6 l6" type="text">
+            </div>
+          </div>
+        </form>
+        <br>
+        <h4>確認地址和全景照片</h4>
+        <br>
+        <div class="row">
+            <div class="row">
+              <div class="input-field col s6">
+                <input placeholder="台中市南區國光路305號" id="source" type="text" class="validate">
+                <label for="first_name">輸入您的地址</label>
+              </div>
+              <a class="waves-effect waves-light btn" onclick="trans();">搜尋全景</a>                   
+            </div>           
+            <div class="row">
+              <div class="input-field col s6">
+                <input placeholder="經緯度" id="source1" type="text" class="validate" value="">
+                <label for="first_name">輸入您的經緯度以搜尋全景</label>
+              </div>
+              <a class="waves-effect waves-light btn" onclick="latlngtostreetview();">搜尋全景</a>                   
+            </div>           
+        </div>
+
+        <div id="pano" style="height:500px;width:100%"></div>
+        <br><br>            
+        <a class="waves-effect waves-light btn" onclick="SendPanoPosition();"><i class="material-icons right">input</i>確認送出</a>
+        <br><br>
+      </div>
+    </div>
+<!-- preload start -->
+    <div id="preloader_modal" class="modal center">
+      <div class="modal-content">
+        <div class="preloader-wrapper big active">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+        <p>準備中,請稍待片刻...</p>
+      </div>
+    </div>
+<!-- preload end -->
+           
+    <script type="text/javascript">
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-1478416-8']);
+      _gaq.push(['_setDomainName', 'uhooamber.com']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+      function store_open(op_value){
+        var split_val;
+        Materialize.toast('你已選取了一筆資料', 4000);
+        split_val=op_value.split("zxv");
+        
+        if(split_val[1].substring(0,2)=="rh"){
+          if(res_hel!='null')
+            alert("您之前選的餐廳衛生資料將會被覆蓋掉");
+          res_hel=op_value;
+          console.log(res_hel);
+        }else if(split_val[1].substring(0,2)=="fv"){
+          if(fire_vio!='null')
+            alert("您之前選的消防安檢資料將會被覆蓋掉");
+          fire_vio=op_value;
+          console.log(fire_vio);
+        }else if(split_val[1].substring(0,2)=="ha"){
+          if(h_age!='null')
+            alert("您之前選的屋齡相關資料將會被覆蓋掉");
+          h_age=op_value;
+          console.log(h_age);
+        }
+      }
+
+      function input_addr(){
+        document.getElementById("restaurant_level").innerHTML = ""
+        document.getElementById("violation_level").innerHTML = ""
+        document.getElementById("age_level").innerHTML = "";
+        var city = $("#city").val();
+        var section = $("#section").val();
+        if(section.search("區")==-1 && $("#section").val()!="")
+          section=section.concat("區");
+        var road= $("#road").val();
+        if(road.search("路")==-1 && $("#road").val()!="")
+          road=road.concat("路");
+        var duan = $("#duan").val();
+        if(duan.search("段")==-1 && $("#duan").val()!="")
+          duan=duan.concat("段");
+        var street = $("#street").val();
+        if(street.search("街")==-1 && $("#street").val()!="")
+          street=street.concat("街");
+        var number = $("#number").val();
+        if(number.search("號")==-1 && $("#number").val()!="")
+          number=number.concat("號");
+        console.log(city + section+road+duan+street+number);
+        //////////////////////////////////
+        ////////優良衛生評價餐廳//////////
+        authapp.database().ref('open_data/restaurant_health').once('value',function(snapshot){
+            data_num=parseInt(snapshot.child('place_num').val());
+            for(var i=0;i<data_num;i++){
+              data.push(snapshot.child('place'+(i+1)).val());
+            }
+        }).then(function(snap){
+
+          var restaurant_json_Num = data_num;
+          if(city==null){
+            document.getElementById("restaurant_level").innerHTML = '<a class="collection-item">無結果</a>'
+            return (alert("縣/市不得為空"));
+          }
+          else{
+            console.log(data[0].地址);
+            var j = 0;
+            $("#restaurant_level").append('<table class="bordered"><thead><tr><th>公司名稱</th><th>地址</th><th>評價</th><th>選取</th></thead><tbody id="table_body1"></tbody></table>');
+            for(var i=0;i<restaurant_json_Num;i++){
+              var str = data[i].地址;
+              if(str.includes(city) && str.includes(section)&&str.includes(road)&&str.includes(duan)&&str.includes(street)&&str.includes(number)){
+                $("#table_body1").append('<tr><td>'+data[i]["店名"]+'</td><td>'+data[i]["地址"]+'</td><td>'+data[i]["等級"]+'</td><td><a class="btn-floating btn waves-effect waves-light" onclick="store_open(&apos;'+"zxvrh"+(i+1)+'&apos;)"><i class="material-icons">done</i></a></td></tr>');
+                j++;
+              }
+              else{ }
+            }
+                
+            if(j==0){
+              document.getElementById("restaurant_level").innerHTML = '<a class="collection-item">無結果</a>';
+            }
+            position = city + section+road+duan+street+number;                  
+          }
+        });
+        //////////////////////////////
+        ////////消防嚴重違規//////////
+        authapp.database().ref('open_data/fire_violation').once('value',function(snapshot){
+            fire_violation_num=parseInt(snapshot.child('place_num').val());
+        }).then(function(snap){
+          for(var i=0;i<fire_violation_num;i++){
+            violation_data.push(snap.child('place'+(i+1)).val());
+          }
+          if(city==null){
+            document.getElementById("violation_level").innerHTML ='<a class="collection-item">無結果</a>'
+            return (alert("縣/市不得為空"));
+          }
+          else{
+            var j = 0;
+            $("#violation_level").append('<table class="bordered"><thead><tr><th>場所名稱</th><th>地址</th><th>檢查日期</th><th>檢查結果</th><th>選取</th></thead><tbody id="table_body2"></tbody></table>');
+            for(var i=0;i<fire_violation_num;i++){
+              var str = violation_data[i].場所地點;
+              if(str.includes(city) && str.includes(section)&&str.includes(road)&&str.includes(duan)&&str.includes(street)&&str.includes(number)){
+                $("#table_body2").append('<tr><td>'+violation_data[i]["場所名稱"]+'</td><td>'+violation_data[i]["場所地點"]+'</td><td>'+violation_data[i]["檢查日期"]+'</td><td>'+violation_data[i]["檢查結果"]+'</td><td><a class="btn-floating btn waves-effect waves-light" onclick="store_open(&apos;'+"zxvfv"+(i+1)+'&apos;)"><i class="material-icons">done</i></a></td></tr>');
+                j++;
+              }
+              else{console.log("hehexd 重大違規");}
+            }
+                
+            if(j==0){
+              document.getElementById("violation_level").innerHTML = '<a class="collection-item">無結果</a>';
+            }
+            position = city + section+road+duan+street+number;                      
+                
+          }
+        });
+        //////////////////////
+        ////////屋齡//////////
+        authapp.database().ref('open_data/house_age_data').once('value',function(snapshot){
+            house_age_num=parseInt(snapshot.child('place_num').val());        
+        }).then(function(snap){
+          for(var i=0;i<house_age_num;i++){          
+            house_age_data.push(snap.child('place'+(i+1)).val());
+          }
+          if(city==null){
+            document.getElementById("age_level").innerHTML = '<a class="collection-item">無結果</a>'
+            return (alert("縣/市不得為空"));
+          }
+          else{
+            var j = 0;
+            $("#age_level").append('<table class="bordered"><thead><tr><th>場所地址</th><th>屋齡</th><th>租賃時間</th><th>選取</th></thead><tbody id="table_body3"></tbody></table>');
+            for(var i=0;i<house_age_num;i++){
+              var str = house_age_data[i]["土地區段位置或建物區門牌"];                   
+              if(str.includes(city) && str.includes(section)&&str.includes(road)&&str.includes(duan)&&str.includes(street)&&str.includes(number)){
+                  $("#table_body3").append('<tr><td>'+house_age_data[i]["土地區段位置或建物區門牌"]+'</td><td>'+house_age_data[i]["屋齡"]+'</td><td>'+house_age_data[i]["租賃年月日"]+'</td><td><a class="btn-floating btn waves-effect waves-light"><i class="material-icons" onclick="store_open(&apos;'+"zxvha"+(i+1)+'&apos;)">done</i></a></td></tr>');
+                        j++;
+              }
+              else{console.log("hehexd 房齡");}
+            }
+                
+            if(j==0){
+              document.getElementById("age_level").innerHTML = '<a class="collection-item">無結果</a>';
+            }
+            position = city + section+road+duan+street+number;                
+          }
+        });
+      }
+
+      $('[data-click]').on('click', function (e) {
+        $( $(this).attr('href') ).trigger('click');
+      });
+
+      function get_addr(index){
+        authapp.database().ref('open_data/restaurant_health').once('value',function(snapshot){
+          data_num=parseInt(snapshot.child('place_num').val());
+        }).then(function(snap){
+          for(var i=0;i<data_num;i++){
+            data.push(snap.child('place'+(i+1)).val());
+          }
+          document.getElementById("source").innerHTML = '<h4>' + data[index]["address"] + '</h4>';
+          position = data[index]["address"];
+        });
+      }
+
+      </script>    
+    <script async defer
+          src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCt3LlekPeERxENL3axjCzJO-Sjflo06tA&callback=initMap"> 
+    </script>
+      <script type="text/javascript">
+        $(".button-collapse").sideNav();
+        $('#textarea1').val('');
+        $('#textarea1').trigger('autoresize');
+        $(document).ready(function(){
+          $('.collapsible').collapsible();
+          $('select').material_select();
+        });
+        $('.modal').modal();
+        $('.button-collapse').sideNav();
+        window.onload = function() {
+          initAuth();
+        };
+
+        //navbar是否在頂端
+          $(window).scroll(function(e){
+            if ($(window).scrollTop()<=0)
+              $(".explore,.navbar").addClass("at_top");
+            else
+             $(".explore,.navbar").removeClass("at_top");
+          });
+        //-------------------------------
+      </script>
+    </body>
+</html>

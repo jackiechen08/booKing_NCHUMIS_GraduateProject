@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
+  <link rel="stylesheet" href="css/font-awesome.min.css">
+    <script type="text/javascript" src="js/jquery-3.2.0.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/3.7.5/firebase.js"></script>
+
+    <script type="text/javascript" src="js/materialize.min.js"></script>
+    <script type="text/javascript" src="js/authentication.js"></script>
+    <script type="text/javascript" src="js/user_roompage.js"></script>
+    <link rel="stylesheet" href="css/jquery-ui.css">
+    <script src="js/jquery-ui.min.js"></script>
+    <meta charset = "utf-8">  
+  <meta http-equiv = "X-UA-Compatible" content = "IE=edge,chrome=1">          
+    <meta name = "viewport" content = "width=device-width,height=device-height,initial-scale=1">
+    <link rel="stylesheet" href="css/user_seatpage.css">
+              <script type="text/javascript">
+            $.datepicker.regional['zh-TW']={
+               dayNames:["星期日","星期一","星期二","星期三","星期四","星期五","星期六"],
+               dayNamesMin:["日","一","二","三","四","五","六"],
+               monthNames:["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"],
+               monthNamesShort:["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"],
+               prevText:"上月",
+               nextText:"次月",
+               weekHeader:"週"
+               };
+               $.datepicker.setDefaults($.datepicker.regional["zh-TW"]);
+                $( function() {
+                  $( "#select_box1" ).datepicker({dateFormat:"yy-mm-dd",showMonthAfterYear:true, minDate: "0", maxDate: "13"});
+                   } );
+
+  </script>
+    <style type="text/css">
+      body, html {
+      height: 100%;
+      width: 100%;
+    }
+      #pano{
+        width: 100%;
+        height:91%;
+      }
+      .gm-iv-address{
+        display: none !important;
+      }
+      .info {
+      margin-left: 5px;
+      margin-top: 5px;
+      width:40px;
+    }
+          .certify {
+      margin-left: 5px;
+      margin-top: 5px;
+      width:40px;
+    }
+              .time {
+      margin-left: 5px;
+      margin-top: 5px;
+      width:40px;
+    }
+
+    </style>
+     
+  <title>場地細節</title>
+</head>
+<body>
+  <div class = "navbar-fixed">
+        <nav class="navbar at_top" role="navigation">
+            <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"><img class="logo" src="images/專題logo font-04.png" alt="booKing"></a>
+            <a href="#" data-activates="nav-mobile" class="button-collapse"><i class="material-icons">menu</i></a>
+              <ul class="right hide-on-med-and-down"> 
+                      <li>
+                          <div class="switch">
+                            <label style="font-weight: bold;">
+                                預約顧客
+                                <input type="checkbox" onchange="state_change(2)" id="account_state1" >
+                                <span class="lever"></span>
+                                場地主
+                            </label>
+                          </div>
+                        </li>
+                        <t id="change_state1">
+                          <li><a class="waves-effect" href="user_search.html">探索場地</a></li>
+                          <li><a class="waves-effect" href="user_manageindex.html">我的預約</a></li>
+                          <li><a class="waves-effect" href="#!">願望清單</a></li>
+                        </t>
+                  
+                      <li class="lijustify">
+                        <div class="login_part">
+                          <a class="waves-effect waves-light btn" href="#SignInmodal">登入</a>
+                        </div>
+                        <div class="logout_part" style="display: none">
+                          <a class="waves-effect waves-light btn" onclick="toggleSignIn()">登出</a>
+                        </div>
+                      </li>
+                  </ul>
+            </div>
+          </nav>
+      </div>
+    <!--Slidenav start--><!--Must put this out of nav block so it can be fixed-->
+    <ul id="nav-mobile" class="side-nav">
+        <li><a onclick="$('.button-collapse').sideNav('hide');"><i class="material-icons">clear_all</i></a></li>
+        <li><div class="divider"></div></li>
+        <li>
+          <div class="userView" id="userView" style="display: none">
+              <div class="background"> <img src="images/bookingBG.jpg"> </div>
+              <img class="circle" id="profile_pic" src="http://i.imgur.com/BOGqUjA.gif">
+              <span class="white-text name" id="user_Name"> </span> 
+              <span class="white-text email" id="user_Email"> </span>
+          </div>
+          <div class="login_part">
+            <a class="waves-effect waves-light btn" href="#SignInmodal">登入</a>
+          </div>  
+        </li> 
+        <li>
+          <div class="switch center-align">
+            <label style="font-weight: bold;">
+              預約顧客
+              <input type="checkbox" onchange="state_change(1)" id="account_state">
+              <span class="lever"></span>
+              場地主
+            </label>
+          </div>
+        </li>
+      <div id="change_state">
+        <li><a class="waves-effect" href="user_search.html"><i class="material-icons">search</i>探索場地</a></li>
+        <li><a class="waves-effect" href="user_manageindex.html"><i class="material-icons">room</i>我的預約</a></li>
+        <li><a class="waves-effect" href="#!"><i class="material-icons">stars</i>願望清單</a></li>
+      </div>
+        <li>
+          <div class="logout_part" style="display: none">
+              <a class="waves-effect waves-light btn" onclick="toggleSignIn()">登出</a>
+          </div>
+        </li>
+    </ul>
+  <!--SlideNave end-->
+
+  <div id="SignUpmodal" class="modal">
+      <div class="modal-content">
+          <div class="row margin logoarea">
+            <img class="signuplogo" src="images/專題app icon-02.png" alt="booKing"></a>
+          </div>
+          <div class="row margin">
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">android</i> -->
+                <input id="signup-username" type="text" >
+                <label for="signup-username">用戶名</label>
+              </div>
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">perm_media</i> -->
+                <input id="signup-photo" type="text" >
+                <label for="signup-photo">頭貼 URL</label>
+              </div>
+              <div class="input-field logininput">
+                <!-- <i class="material-icons prefix">vpn_key</i> -->
+                <textarea id="fire_base_textarea" class="materialize-textarea" value=""></textarea>
+                <label for="signup-photo">Firebase 金鑰參數(必要)</label>
+              </div>
+          </div>
+          <div class="signupnotation">
+              <button class="waves-effect waves-light btn signupbtn" id="quickstart-sign-up" name="signup">Sign Up</button>
+              <p>剛才輸入的Email與密碼已暫存了，</p>
+              <p>剩下面的欄位囉!</p>
+          </div>
+      </div>
+      <!-- <div class="modal-footer signupnotation">
+          <button class="waves-effect waves-light btn signupbtn" id="quickstart-sign-up" name="signup">Sign Up</button>
+          <p>剛才輸入的Email與密碼已暫存了，</p>
+          <p>剩下面的欄位囉!</p>
+      </div> -->
+  </div>
+
+  <div id="SignInmodal" class="modal">
+      <div class="modal-content">
+          <div class="row margin logoarea">
+            <img class="loginlogo" src="images/專題logo font-04.png" alt="booKing"></a>
+          </div>
+          <br>
+          <div class="row margin logininput">
+            <!-- <i class="material-icons prefix">email</i> -->
+            <input class="" type="email" id="email" name="email" placeholder="Email"/>
+          </div>
+          <div class="row margin logininput">
+            <!-- <i class="material-icons prefix">vpn_key</i> -->
+              <input  type="password" id="password" name="password" placeholder="Password"/>
+          </div>
+          <!--<button class="waves-effect waves-light btn" id="quickstart-password-reset">Forget password</button>-->
+
+          <div class="loginnotation">
+              <button class="waves-effect waves-light btn loginbtn" id="quickstart-sign-in" name="signin">Sign In</button>
+              <p>還沒有帳號?直接打在上面送出吧!</p>
+          </div>
+      </div>
+          
+      <!-- <div class="modal-footer loginnotation">
+          <button class="waves-effect waves-light btn loginbtn" id="quickstart-sign-in" name="signin">Sign In</button>
+          <p>還沒有帳號?直接打在上面送出吧!</p>
+      </div> -->
+  </div>
+    
+    <script type="text/javascript">
+    function state_change(change){
+              if(change==1){
+                 if(document.getElementById('account_state').checked){
+
+                document.getElementById('change_state').innerHTML=' <li><a class="waves-effect" href="manager_manageIndex.html"><i class="material-icons">stars</i>管理場地</a></li><li><a class="waves-effect" href="manager_basic.html"><i class="material-icons">room</i>新增預約場地</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">person_pin</i>說明</a></li>';
+
+                document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="manager_manageIndex.html">管理場地</a></li><li><a class="waves-effect" href="manager_basic.html">新增預約場地</a></li><li><a class="waves-effect" href="#!"說明</a></li>';
+
+                document.getElementById('account_state1').checked=true;
+                 document.getElementById('account_state').checked=true;
+              }else{
+                  document.getElementById('change_state').innerHTML='<li><a class="waves-effect" href="user_search.html"><i class="material-icons">search</i>探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html"><i class="material-icons">room</i>我的預約</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">stars</i>願望清單</a></li>';
+
+                  document.getElementById('account_state1').checked=false;
+                  document.getElementById('account_state').checked=false;
+
+                  document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="user_search.html">探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html">我的預約</a></li><li><a class="waves-effect" href="#!">願望清單</a></li>';
+              }
+            }else{
+              if(document.getElementById('account_state1').checked){
+                document.getElementById('change_state').innerHTML=' <li><a class="waves-effect" href="manager_manageIndex.html"><i class="material-icons">stars</i>管理場地</a></li><li><a class="waves-effect" href="manager_basic.html"><i class="material-icons">room</i>新增預約場地</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">person_pin</i>說明</a></li>';
+
+                document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="manager_manageIndex.html">管理場地</a></li><li><a class="waves-effect" href="manager_basic.html">新增預約場地</a></li><li><a class="waves-effect" href="#!">說明</a></li>';
+
+                document.getElementById('account_state1').checked=true;
+                 document.getElementById('account_state').checked=true;
+              }else{
+                  document.getElementById('change_state').innerHTML='<li><a class="waves-effect" href="user_search.html"><i class="material-icons">search</i>探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html"><i class="material-icons">room</i>我的預約</a></li><li><a class="waves-effect" href="#!"><i class="material-icons">stars</i>願望清單</a></li>';
+
+                  document.getElementById('account_state1').checked=false;
+                  document.getElementById('account_state').checked=false;
+                  document.getElementById('change_state1').innerHTML='<li><a class="waves-effect" href="user_search.html">探索場地</a></li><li><a class="waves-effect" href="user_manageindex.html">我的預約</a></li><li><a class="waves-effect" href="#!">願望清單</a>';
+
+              }
+             
+            }
+            }
+      
+        </script>
+        
+
+        <div id="pano" class="col s12"></div>
+        <!--<br>
+        <div id="information">
+          <h5>場域資訊</h5>
+
+          
+        </div>
+        <br>
+        <br>-->
+
+   <!-- preload start -->
+    <div id="preloader_modal" class="modal center">
+      <div class="modal-content">
+        <div class="preloader-wrapper big active">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+        <p>準備中,請稍待片刻...</p>
+      </div>
+    </div>
+<!-- preload end -->
+<!--info modal-->
+  <div id="infomodal" class="modal">
+    <div class="modal-content" id="infoContent">
+    </div>
+  </div>
+<!--info modal end-->
+<!--certify modal-->
+  <div id="certifymodal" class="modal">
+    <div class="modal-content">
+      <p><h5>場地認證情況</h5><div id="certify_content"></div></p>
+    </div>
+  </div>
+  <!--certify modal end-->
+  <!--next modal-->
+  <div id="nextmodal" class="modal">
+    <div class="modal-content">
+      <p><h5>確定要前往預約?</h5><div><br><a class="black-text waves-effect waves-light btn" onclick="passvalue()">前往預約</a></div></p>
+    </div>
+  </div>
+  <!--next modal end-->
+  <!--time modal-->
+    <div id="timemodal" class="modal" style="height: 100%;">
+    <div class="modal-content">
+        <h5>選擇預約時間</h5>
+        <label class="active" for="select_box1">選擇預約日期</label>
+        <input id = "select_box1" onclick="show_seg();"> 
+        <p id="user_choice2"></p> 
+        <a class="black-text waves-effect waves-light btn" onclick="$('#timemodal').modal('close');">確認</a>
+
+    </div>
+  </div>
+   <!--time modal end-->
+    <div class="modal bottom-sheet" id="modal1">
+        <div id="marker_appoint" class="modal-content"></div>
+    </div>
+
+    <script async defer
+          src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCt3LlekPeERxENL3axjCzJO-Sjflo06tA&callback=initMap"> 
+    </script>
+      <script type="text/javascript">
+      $('.modal').modal();
+        $('.button-collapse').sideNav();
+        window.onload = function() {
+                initAuth();
+            };
+      </script>
+
+      <script type="text/javascript">
+      //navbar是否在頂端
+        $(window).scroll(function(e){
+          if ($(window).scrollTop()<=0)
+            $(".explore,.navbar").addClass("at_top");
+          else
+           $(".explore,.navbar").removeClass("at_top");
+        });
+      //-------------------------------
+    </script>
+
+
+</body>
+</html>
